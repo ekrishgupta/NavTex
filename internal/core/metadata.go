@@ -31,12 +31,16 @@ type PackageInfo struct {
 
 // BibEntry represents a single bibliography entry.
 type BibEntry struct {
-	Key     string
-	Type    string // article, book, inproceedings, etc.
-	Title   string
-	Authors string
-	Year    string
-	Journal string
+	Key      string
+	Type     string // article, book, inproceedings, etc.
+	Title    string
+	Authors  string
+	Year     string
+	Journal  string
+	DOI      string
+	URL      string
+	Abstract string
+	Keywords []string
 }
 
 // ImageMeta holds metadata about an image file.
@@ -54,7 +58,7 @@ var (
 	reAuthor        = regexp.MustCompile(`\\author\s*\{([^}]+)\}`)
 	reComment       = regexp.MustCompile(`(?m)^%.*$|(?:^[^\\]*)(%.*$)`)
 	reBibEntry      = regexp.MustCompile(`@(\w+)\s*\{\s*([^,\s]+)\s*,`)
-	reBibField      = regexp.MustCompile(`(?i)\s*(title|author|year|journal)\s*=\s*\{([^}]*)\}`)
+	reBibField      = regexp.MustCompile(`(?i)\s*(title|author|year|journal|doi|url|abstract|keywords)\s*=\s*\{([^}]*)\}`)
 	reTexCommand    = regexp.MustCompile(`\\[a-zA-Z]+\*?(?:\[[^\]]*\])*(?:\{[^}]*\})*`)
 	reBeginEnd      = regexp.MustCompile(`\\(?:begin|end)\{[^}]+\}`)
 )
@@ -235,7 +239,7 @@ func BibMetadata(path string) ([]BibEntry, error) {
 	return entries, nil
 }
 
-// parseEntryFields extracts title, author, year, journal from the raw entry text.
+// parseEntryFields extracts title, author, year, journal, DOI, URL, abstract, and keywords.
 func parseEntryFields(entry *BibEntry, text string) {
 	for _, m := range reBibField.FindAllStringSubmatch(text, -1) {
 		field := strings.ToLower(m[1])
@@ -249,6 +253,20 @@ func parseEntryFields(entry *BibEntry, text string) {
 			entry.Year = value
 		case "journal":
 			entry.Journal = value
+		case "doi":
+			entry.DOI = value
+		case "url":
+			entry.URL = value
+		case "abstract":
+			entry.Abstract = value
+		case "keywords":
+			// Split comma-separated keywords
+			for _, kw := range strings.Split(value, ",") {
+				kw = strings.TrimSpace(kw)
+				if kw != "" {
+					entry.Keywords = append(entry.Keywords, kw)
+				}
+			}
 		}
 	}
 }
