@@ -18,13 +18,14 @@ type CompileResult struct {
 	Engine   string
 }
 
-// Compiler manages LaTeX builds with concurrency protection.
+// Compiler orchestrates the LaTeX build process.
+// It handles multi-pass compilation and concurrency control.
 type Compiler struct {
 	mu   sync.Mutex
 	busy bool
 }
 
-// NewCompiler creates a new Compiler instance.
+// NewCompiler creates a new thread-safe compiler manager.
 func NewCompiler() *Compiler {
 	return &Compiler{}
 }
