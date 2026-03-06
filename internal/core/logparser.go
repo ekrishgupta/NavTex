@@ -96,8 +96,8 @@ func ParseLog(path string) ([]LogEntry, error) {
 			}
 		}
 
-		// If we had a pending error but no line location, still record it
-		if pendingError != "" && !strings.HasPrefix(line, " ") && line != "" {
+		// If we had a pending error and hit an empty line, flush it
+		if pendingError != "" && line == "" {
 			entries = append(entries, LogEntry{
 				Severity: "error",
 				Line:     0,
