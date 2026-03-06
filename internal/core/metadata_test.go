@@ -38,3 +38,27 @@ Hello world.
 		t.Errorf("Expected class 'article', got '%s'", meta.DocumentClass)
 	}
 }
+
+func TestTexMetadata_WordCount(t *testing.T) {
+	content := `
+\documentclass{article}
+\begin{document}
+One two three four five.
+\end{document}
+`
+	tmpFile, err := os.CreateTemp("", "test-*.tex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpFile.Name())
+	os.WriteFile(tmpFile.Name(), []byte(content), 0o644)
+
+	meta, err := TexMetadata(tmpFile.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if meta.WordCount != 5 {
+		t.Errorf("Expected 5 words, got %d", meta.WordCount)
+	}
+}
