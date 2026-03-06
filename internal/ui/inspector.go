@@ -93,6 +93,28 @@ func (ins *Inspector) SetFile(path string, cat core.FileCategory) {
 	}
 }
 
+// MoveBibUp moves the bibliography selection up.
+func (ins *Inspector) MoveBibUp() {
+	if len(ins.bibMeta) == 0 {
+		return
+	}
+	ins.selectedBibIdx--
+	if ins.selectedBibIdx < 0 {
+		ins.selectedBibIdx = len(ins.bibMeta) - 1
+	}
+}
+
+// MoveBibDown moves the bibliography selection down.
+func (ins *Inspector) MoveBibDown() {
+	if len(ins.bibMeta) == 0 {
+		return
+	}
+	ins.selectedBibIdx++
+	if ins.selectedBibIdx >= len(ins.bibMeta) {
+		ins.selectedBibIdx = 0
+	}
+}
+
 // View renders the inspector.
 func (ins Inspector) View() string {
 	var content string
@@ -202,12 +224,17 @@ func (ins Inspector) renderBibMeta() string {
 	lines = append(lines, FileItemDim.Render("  "+strings.Repeat("─", min(ins.width-6, len(header)))))
 
 	// Entries
-	for _, entry := range ins.bibMeta {
+	for i, entry := range ins.bibMeta {
 		authors := truncate(entry.Authors, maxAuth)
 		title := truncate(entry.Title, maxTitle)
 		row := fmt.Sprintf("  %-*s %-*s %-4s %-8s",
 			maxAuth, authors, maxTitle, title, entry.Year, entry.Type)
-		lines = append(lines, BibTableRow.Render(row))
+
+		if i == ins.selectedBibIdx && ins.focused {
+			lines = append(lines, BibTableRowSelected.Width(ins.width-4).Render(row))
+		} else {
+			lines = append(lines, BibTableRow.Render(row))
+		}
 
 		// Show DOI/URL if present
 		if entry.DOI != "" {
