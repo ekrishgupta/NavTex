@@ -147,6 +147,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.browser.MoveUp()
 				path, cat := m.browser.SelectedFile()
 				m.inspector.SetFile(path, cat)
+			} else {
+				m.inspector.MoveBibUp()
 			}
 
 		case "down", "j":
@@ -154,6 +156,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.browser.MoveDown()
 				path, cat := m.browser.SelectedFile()
 				m.inspector.SetFile(path, cat)
+			} else {
+				m.inspector.MoveBibDown()
 			}
 		}
 
