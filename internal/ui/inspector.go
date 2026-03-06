@@ -115,6 +115,14 @@ func (ins *Inspector) MoveBibDown() {
 	}
 }
 
+// SelectedBibKey returns the citekey of the currently selected bibliography entry.
+func (ins Inspector) SelectedBibKey() string {
+	if len(ins.bibMeta) == 0 || ins.selectedBibIdx < 0 || ins.selectedBibIdx >= len(ins.bibMeta) {
+		return ""
+	}
+	return ins.bibMeta[ins.selectedBibIdx].Key
+}
+
 // View renders the inspector.
 func (ins Inspector) View() string {
 	var content string
