@@ -100,19 +100,19 @@ func ScanDirectory(root string) (*ProjectFiles, error) {
 	// Collect .tex basenames to identify output PDFs.
 	texBasenames := make(map[string]bool)
 
-	err = filepath.Walk(absRoot, func(path string, info os.FileInfo, err error) error {
+	err = filepath.WalkDir(absRoot, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip files we can't read
 		}
-		if info.IsDir() {
+		if d.IsDir() {
 			// Skip hidden directories
-			if strings.HasPrefix(info.Name(), ".") && path != absRoot {
+			if strings.HasPrefix(d.Name(), ".") && path != absRoot {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		name := info.Name()
+		name := d.Name()
 		ext := strings.ToLower(filepath.Ext(name))
 
 		// Handle double extensions like .synctex.gz and .run.xml
@@ -122,10 +122,16 @@ func ScanDirectory(root string) (*ProjectFiles, error) {
 			doubleExt = strings.ToLower(secondExt + ext)
 		}
 
+		size := int64(0)
+		info, err := d.Info()
+		if err == nil {
+			size = info.Size()
+		}
+
 		entry := FileEntry{
 			Path: path,
 			Name: name,
-			Size: info.Size(),
+			Size: size,
 		}
 
 		switch {

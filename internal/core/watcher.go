@@ -3,6 +3,7 @@ package core
 import (
 	"log"
 	"path/filepath"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -44,8 +45,11 @@ func NewWatcher(dir string) (*Watcher, error) {
 	return sub, nil
 }
 
-// listen runs in a goroutine and forwards relevant events.
+// listen runs in a goroutine and forwards relevant events with debouncing.
 func (w *Watcher) listen() {
+	var debounceTimer <-chan time.Time
+	var pendingEvent string
+
 	for {
 		select {
 		case event, ok := <-w.watcher.Events:
@@ -54,8 +58,14 @@ func (w *Watcher) listen() {
 			}
 			// We only care about writes, creates, or removes
 			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Remove) {
-				w.Events <- event.Name
+				pendingEvent = event.Name
+				// Reset the debounce timer on every new event
+				debounceTimer = time.After(200 * time.Millisecond)
 			}
+		case <-debounceTimer:
+			// Fire the debounced event to the UI
+			w.Events <- pendingEvent
+			debounceTimer = nil // Stop firing until another event
 		case err, ok := <-w.watcher.Errors:
 			if !ok {
 				return
