@@ -6,6 +6,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/ekrishgupta/navtex/internal/core"
 	"github.com/ekrishgupta/navtex/internal/ui"
 )
 
@@ -13,7 +14,7 @@ var version = "0.1.0"
 
 func main() {
 	// CLI Flags
-	engine := flag.String("engine", "pdflatex", "LaTeX engine to use (pdflatex, lualatex, xelatex)")
+	engine := flag.String("engine", "", "LaTeX engine to use (pdflatex, lualatex, xelatex). Overrides .navtex.yaml")
 	showVersion := flag.Bool("version", false, "Show version information")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "NavTex TUI — LaTeX Workspace Manager\n\n")
@@ -38,8 +39,17 @@ func main() {
 		path = flag.Arg(0)
 	}
 
+	// Load configuration from .navtex.yaml if present
+	config := core.LoadConfig(path)
+
+	// CLI overrides config
+	finalEngine := config.Engine
+	if *engine != "" {
+		finalEngine = *engine
+	}
+
 	// Initialize the model
-	m := ui.NewModel(path, *engine)
+	m := ui.NewModel(path, finalEngine)
 
 	// Run the Bubble Tea program
 	p := tea.NewProgram(m, tea.WithAltScreen())
