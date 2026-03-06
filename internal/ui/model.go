@@ -2,7 +2,6 @@ package ui
 
 import (
 	"os"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -133,13 +132,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "y":
 			// Yank citekey to clipboard
-			if m.focused == 0 {
-				path, cat := m.browser.SelectedFile()
-				if cat == core.CategoryData && strings.HasSuffix(path, ".bib") {
-					// In a real app we might want to pick a specific key,
-					// for now just show a hint or yank the first/selected.
-					// We'll leave this as a feature hook.
-				}
+			key := m.inspector.SelectedBibKey()
+			if key != "" {
+				YankToClipboard(key)
 			}
 
 		case "up", "k":
