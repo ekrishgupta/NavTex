@@ -34,3 +34,25 @@ func TestCreateProject_Basic(t *testing.T) {
 		}
 	}
 }
+
+func TestCreateProject_SkipExisting(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "navtex-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	texPath := filepath.Join(tmpDir, "main.tex")
+	originalContent := []byte("original")
+	os.WriteFile(texPath, originalContent, 0o644)
+
+	err = CreateProject(tmpDir, "New Paper", "Author", "article")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	content, _ := os.ReadFile(texPath)
+	if string(content) != string(originalContent) {
+		t.Error("CreateProject should not overwrite existing files")
+	}
+}
