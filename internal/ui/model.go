@@ -3,6 +3,7 @@ package ui
 import (
 	"os"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ekrishgupta/navtex/internal/core"
@@ -14,15 +15,17 @@ type Model struct {
 	height int
 
 	// State
-	rootPath string
-	engine   string
-	focused  int // 0: Browser, 1: Inspector
+	rootPath  string
+	engine    string
+	focused   int // 0: Browser, 1: Inspector
+	filtering bool
 
 	// Components
-	browser   FileBrowser
-	inspector Inspector
-	actionBar ActionBar
-	compiler  *core.Compiler
+	browser     FileBrowser
+	inspector   Inspector
+	actionBar   ActionBar
+	compiler    *core.Compiler
+	filterInput textinput.Model
 
 	// Modals
 	errorModal      ErrorModal
@@ -42,6 +45,11 @@ func NewModel(root, engine string) Model {
 		engine = "pdflatex"
 	}
 
+	ti := textinput.New()
+	ti.Placeholder = "Filter files... (Esc to cancel, Enter to accept)"
+	ti.Prompt = " / "
+	ti.CharLimit = 50
+
 	return Model{
 		rootPath:        root,
 		engine:          engine,
@@ -49,6 +57,7 @@ func NewModel(root, engine string) Model {
 		inspector:       NewInspector(),
 		actionBar:       NewActionBar(),
 		compiler:        core.NewCompiler(),
+		filterInput:     ti,
 		errorModal:      NewErrorModal(),
 		newProjectModal: NewNewProjectModal(),
 		helpModal:       NewHelpModal(),
@@ -57,7 +66,10 @@ func NewModel(root, engine string) Model {
 
 // Init initializes the application.
 func (m Model) Init() tea.Cmd {
-	return m.scanDirCmd(m.rootPath)
+	return tea.Batch(
+		textinput.Blink,
+		m.scanDirCmd(m.rootPath),
+	)
 }
 
 // Update handles messages and updates state.
@@ -101,10 +113,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
+		if m.filtering {
+			switch msg.Type {
+			case tea.KeyEscape, tea.KeyEnter:
+				m.filtering = false
+				m.filterInput.Blur()
+				return m, nil
+			}
+
+			var cmd tea.Cmd
+			m.filterInput, cmd = m.filterInput.Update(msg)
+
+			// Let browser know filter changed
+			m.browser.SetFilter(m.filterInput.Value())
+
+			// Also update inspector to match new browser selection
+			path, cat := m.browser.SelectedFile()
+			m.inspector.SetFile(path, cat)
+
+			return m, cmd
+		}
+
 		// Global keys
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
+
+		case "/":
+			if m.focused == 0 && !m.filtering {
+				m.filtering = true
+				m.filterInput.Focus()
+				return m, textinput.Blink
+			}
 
 		case "tab":
 			m.focused = (m.focused + 1) % 2
@@ -220,6 +260,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// General error handling
 	}
 
+	if m.filtering {
+		var cmd tea.Cmd
+		m.filterInput, cmd = m.filterInput.Update(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
+
 	return m, tea.Batch(cmds...)
 }
 
@@ -232,10 +280,23 @@ func (m Model) View() string {
 	// Main panes
 	browserView := m.browser.View()
 	inspectorView := m.inspector.View()
-	actionBarView := m.actionBar.View()
+
+	// Action/Filter Bar
+	var bottomBarView string
+	if m.filtering {
+		inputView := m.filterInput.View()
+		bottomBarView = lipgloss.NewStyle().
+			Width(m.width).
+			Padding(1, 2).
+			Background(lipgloss.Color("0")).
+			Foreground(lipgloss.Color("15")).
+			Render(inputView)
+	} else {
+		bottomBarView = m.actionBar.View()
+	}
 
 	main := lipgloss.JoinHorizontal(lipgloss.Top, browserView, inspectorView)
-	app := lipgloss.JoinVertical(lipgloss.Left, main, actionBarView)
+	app := lipgloss.JoinVertical(lipgloss.Left, main, bottomBarView)
 
 	// Layer modals
 	if m.helpModal.IsVisible() {

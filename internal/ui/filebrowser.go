@@ -24,6 +24,7 @@ type FileBrowser struct {
 	height     int
 	showShadow bool
 	focused    bool
+	filter     string
 }
 
 type browserItem struct {
@@ -38,7 +39,16 @@ func NewFileBrowser() FileBrowser {
 	return FileBrowser{
 		showShadow: false,
 		focused:    true,
+		filter:     "",
 	}
+}
+
+// SetFilter sets the search filter string.
+func (fb *FileBrowser) SetFilter(f string) {
+	fb.filter = strings.ToLower(f)
+	fb.rebuildItems()
+	fb.cursor = 0
+	fb.advanceCursorToSelectable(1)
 }
 
 // SetFiles populates the browser with scanned project files.
@@ -117,85 +127,126 @@ func (fb *FileBrowser) rebuildItems() {
 		return
 	}
 
+	// Helper to check if a file name matches the current filter
+	matchFilter := func(name string) bool {
+		if fb.filter == "" {
+			return true
+		}
+		// Basic "fuzzy" match by converting to lower and checking contain
+		// A full fuzzy matching algorithm could be added here later.
+		return strings.Contains(strings.ToLower(name), fb.filter)
+	}
+
 	// Source files
 	if len(fb.files.Source) > 0 {
-		fb.items = append(fb.items, browserItem{
-			display:  fmt.Sprintf("📄 Source (%d)", len(fb.files.Source)),
-			isHeader: true,
-		})
+		var filtered []browserItem
 		for _, f := range fb.files.Source {
+			if matchFilter(f.Name) {
+				filtered = append(filtered, browserItem{
+					display:  f.Name,
+					path:     f.Path,
+					category: core.CategorySource,
+				})
+			}
+		}
+		if len(filtered) > 0 {
 			fb.items = append(fb.items, browserItem{
-				display:  f.Name,
-				path:     f.Path,
-				category: core.CategorySource,
+				display:  fmt.Sprintf("📄 Source (%d)", len(filtered)),
+				isHeader: true,
 			})
+			fb.items = append(fb.items, filtered...)
 		}
 	}
 
 	// Data files
 	if len(fb.files.Data) > 0 {
-		fb.items = append(fb.items, browserItem{
-			display:  fmt.Sprintf("📊 Data (%d)", len(fb.files.Data)),
-			isHeader: true,
-		})
+		var filtered []browserItem
 		for _, f := range fb.files.Data {
+			if matchFilter(f.Name) {
+				filtered = append(filtered, browserItem{
+					display:  f.Name,
+					path:     f.Path,
+					category: core.CategoryData,
+				})
+			}
+		}
+		if len(filtered) > 0 {
 			fb.items = append(fb.items, browserItem{
-				display:  f.Name,
-				path:     f.Path,
-				category: core.CategoryData,
+				display:  fmt.Sprintf("📊 Data (%d)", len(filtered)),
+				isHeader: true,
 			})
+			fb.items = append(fb.items, filtered...)
 		}
 	}
 
 	// Assets
 	if len(fb.files.Assets) > 0 {
-		fb.items = append(fb.items, browserItem{
-			display:  fmt.Sprintf("🖼  Assets (%d)", len(fb.files.Assets)),
-			isHeader: true,
-		})
+		var filtered []browserItem
 		for _, f := range fb.files.Assets {
 			rel, _ := filepath.Rel(fb.files.Root, f.Path)
+			if matchFilter(rel) {
+				filtered = append(filtered, browserItem{
+					display:  rel,
+					path:     f.Path,
+					category: core.CategoryAssets,
+				})
+			}
+		}
+		if len(filtered) > 0 {
 			fb.items = append(fb.items, browserItem{
-				display:  rel,
-				path:     f.Path,
-				category: core.CategoryAssets,
+				display:  fmt.Sprintf("🖼  Assets (%d)", len(filtered)),
+				isHeader: true,
 			})
+			fb.items = append(fb.items, filtered...)
 		}
 	}
 
 	// Output
 	if len(fb.files.Output) > 0 {
-		fb.items = append(fb.items, browserItem{
-			display:  fmt.Sprintf("📦 Output (%d)", len(fb.files.Output)),
-			isHeader: true,
-		})
+		var filtered []browserItem
 		for _, f := range fb.files.Output {
+			if matchFilter(f.Name) {
+				filtered = append(filtered, browserItem{
+					display:  f.Name,
+					path:     f.Path,
+					category: core.CategoryOutput,
+				})
+			}
+		}
+		if len(filtered) > 0 {
 			fb.items = append(fb.items, browserItem{
-				display:  f.Name,
-				path:     f.Path,
-				category: core.CategoryOutput,
+				display:  fmt.Sprintf("📦 Output (%d)", len(filtered)),
+				isHeader: true,
 			})
+			fb.items = append(fb.items, filtered...)
 		}
 	}
 
 	// Shadow Bin (auxiliary)
 	if len(fb.files.Auxiliary) > 0 {
-		shadowLabel := fmt.Sprintf("👻 Shadow Bin (%d)", len(fb.files.Auxiliary))
-		if !fb.showShadow {
-			shadowLabel += " [h to show]"
-		}
-		fb.items = append(fb.items, browserItem{
-			display:  shadowLabel,
-			isHeader: true,
-		})
+		var filtered []browserItem
 		if fb.showShadow {
 			for _, f := range fb.files.Auxiliary {
-				fb.items = append(fb.items, browserItem{
-					display:  f.Name,
-					path:     f.Path,
-					category: core.CategoryAuxiliary,
-				})
+				if matchFilter(f.Name) {
+					filtered = append(filtered, browserItem{
+						display:  f.Name,
+						path:     f.Path,
+						category: core.CategoryAuxiliary,
+					})
+				}
 			}
+		}
+
+		if len(filtered) > 0 || (!fb.showShadow && matchFilter("shadow bin")) {
+			shadowLabel := fmt.Sprintf("👻 Shadow Bin (%d)", len(fb.files.Auxiliary))
+			if !fb.showShadow {
+				shadowLabel += " [h to show]"
+			}
+			fb.items = append(fb.items, browserItem{
+				display:  shadowLabel,
+				isHeader: true,
+			})
+			fb.items = append(fb.items, filtered...)
 		}
 	}
 }
