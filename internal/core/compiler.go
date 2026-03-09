@@ -41,7 +41,7 @@ func (c *Compiler) IsBusy() bool {
 // Compile runs the LaTeX engine on the given .tex file.
 // If .bib files exist in the same directory, it performs a full build:
 // engine → bibtex → engine → engine
-func (c *Compiler) Compile(texPath string, engine string) (*CompileResult, error) {
+func (c *Compiler) Compile(texPath string, rootPath string, engine string) (*CompileResult, error) {
 	c.mu.Lock()
 	if c.busy {
 		c.mu.Unlock()
@@ -60,7 +60,12 @@ func (c *Compiler) Compile(texPath string, engine string) (*CompileResult, error
 		engine = "pdflatex"
 	}
 
-	absPath, err := filepath.Abs(texPath)
+	resolvedPath, err := ResolveRootDocument(texPath, rootPath)
+	if err != nil {
+		resolvedPath = texPath // fallback
+	}
+
+	absPath, err := filepath.Abs(resolvedPath)
 	if err != nil {
 		return nil, fmt.Errorf("resolving path: %w", err)
 	}
