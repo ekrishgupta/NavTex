@@ -171,7 +171,7 @@ func ScanDirectory(root string) (*ProjectFiles, error) {
 
 	// Second pass: reclassify PDFs now that we have all tex basenames.
 	// (Walk order may have seen the PDF before the .tex file.)
-	var newAssets []FileEntry
+	newAssets := pf.Assets[:0]
 	for _, a := range pf.Assets {
 		ext := strings.ToLower(filepath.Ext(a.Name))
 		if ext == ".pdf" {
