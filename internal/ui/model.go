@@ -69,6 +69,7 @@ func NewModel(root, engine string) Model {
 		errorModal:      NewErrorModal(),
 		newProjectModal: NewNewProjectModal(),
 		helpModal:       NewHelpModal(),
+		diffModal:       NewDiffModal(),
 		searchModal:     NewSearchModal(),
 	}
 }
@@ -173,7 +174,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "n":
 			m.newProjectModal.Show(m.rootPath)
 
+		case "d":
+			path, cat := m.browser.SelectedFile()
+			if cat == core.CategorySource && path != "" {
+				// Prepare list of files and tags
+				var allTex []string
+				if m.projectFiles != nil {
+					for _, f := range m.projectFiles.Source {
+						allTex = append(allTex, f.Path)
+					}
+				}
+				cmds = append(cmds, m.listTagsCmd(path, allTex))
+			}
+
 		case "?":
+
 			m.helpModal.Show()
 
 		case "s":
@@ -232,12 +247,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		if m.diffModal.IsVisible() {
+			cmd := m.diffModal.HandleKey(msg)
+			if cmd != nil {
+				return m, cmd
+			}
+			return m, nil
+		}
+
 	case ScannedMsg:
 		m.projectFiles = msg.Files
 		m.browser.SetFiles(msg.Files)
 		m.actionBar.SetProjectRoot(msg.Files.Root)
 		path, cat := m.browser.SelectedFile()
 		m.inspector.SetFile(path, cat)
+
+	case RunDiffMsg:
+		m.actionBar.SetBuildStatus(StatusBUILDING, 0, 0)
+		cmds = append(cmds, m.diffCmd(msg))
+
+	case TagsListedMsg:
+		m.diffModal.Show(msg.SelectedPath, msg.Tags, msg.AllFiles)
 
 	case BuildFinishedMsg:
 		if msg.Err != nil {
@@ -342,6 +372,9 @@ func (m Model) View() string {
 	if m.searchModal.IsVisible() {
 		return m.searchModal.View(m.width, m.height)
 	}
+	if m.diffModal.IsVisible() {
+		return m.diffModal.View(m.width, m.height)
+	}
 
 	return app
 }
@@ -363,6 +396,24 @@ func (m Model) loadGlobalBibCmd() tea.Cmd {
 
 		entries, err := core.BibMetadata(config.GlobalBibPath)
 		return GlobalBibLoadedMsg{Entries: entries, Err: err}
+	}
+}
+
+func (m Model) listTagsCmd(selectedPath string, allFiles []string) tea.Cmd {
+	return func() tea.Msg {
+		tags, _ := core.ListGitTags() // ignore error, just show empty if not git
+		return TagsListedMsg{
+			SelectedPath: selectedPath,
+			Tags:         tags,
+			AllFiles:     allFiles,
+		}
+	}
+}
+
+func (m Model) diffCmd(msg RunDiffMsg) tea.Cmd {
+	return func() tea.Msg {
+		res, err := m.compiler.Diff(msg.OldPath, msg.OldContent, msg.NewPath, m.rootPath, m.engine)
+		return BuildFinishedMsg{Result: res, Err: err}
 	}
 }
 

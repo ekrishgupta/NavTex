@@ -53,7 +53,9 @@ func (hm HelpModal) View(termWidth, termHeight int) string {
 		{"F5", "Compile LaTeX document"},
 		{"F6", "Clean auxiliary files"},
 		{"F7", "Open compiled PDF"},
+		{"d", "Generate latexdiff PDF"},
 		{"n", "New project wizard"},
+
 		{"y", "Yank cite key to clipboard"},
 		{"s", "Search global bibliography"},
 		{"/", "Search files"},

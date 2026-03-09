@@ -95,12 +95,6 @@ func (npm *NewProjectModal) submit() tea.Cmd {
 	}
 }
 
-// ProjectCreatedMsg is sent when a new project is created.
-type ProjectCreatedMsg struct {
-	Path string
-	Err  error
-}
-
 // View renders the new project modal.
 func (npm NewProjectModal) View(termWidth, termHeight int) string {
 	if !npm.visible {
