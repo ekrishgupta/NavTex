@@ -14,11 +14,23 @@ type ProjectConfig struct {
 	Ignores    []string `yaml:"ignores"`
 }
 
+// GlobalConfig holds settings defined in ~/.navtex.yaml
+type GlobalConfig struct {
+	GlobalBibPath string `yaml:"global_bib"`
+}
+
 // DefaultConfig returns a configuration with sensible defaults.
 func DefaultConfig() ProjectConfig {
 	return ProjectConfig{
 		Engine:     "pdflatex",
 		MasterFile: "",
+	}
+}
+
+// DefaultGlobalConfig returns a global configuration with sensible defaults.
+func DefaultGlobalConfig() GlobalConfig {
+	return GlobalConfig{
+		GlobalBibPath: "",
 	}
 }
 
@@ -36,6 +48,28 @@ func LoadConfig(dir string) ProjectConfig {
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		return config // Assume default if broken
+	}
+
+	return config
+}
+
+// LoadGlobalConfig attempts to read ~/.navtex.yaml.
+func LoadGlobalConfig() GlobalConfig {
+	config := DefaultGlobalConfig()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return config
+	}
+
+	path := filepath.Join(home, ".navtex.yaml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return config
+	}
+
+	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		return config
 	}
 
 	return config
