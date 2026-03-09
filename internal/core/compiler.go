@@ -42,6 +42,12 @@ func (c *Compiler) IsBusy() bool {
 // If .bib files exist in the same directory, it performs a full build:
 // engine → bibtex → engine → engine
 func (c *Compiler) Compile(texPath string, rootPath string, engine string) (*CompileResult, error) {
+	return c.compile(texPath, rootPath, engine, false)
+}
+
+// Diff runs latexdiff on two LaTeX files and builds the resulting PDF.
+// If oldPath is provided, it uses that file. Otherwise, it creates a temporary file from oldContent.
+func (c *Compiler) Diff(oldPath, oldContent string, newPath string, rootPath string, engine string) (*CompileResult, error) {
 	c.mu.Lock()
 	if c.busy {
 		c.mu.Unlock()
@@ -55,6 +61,65 @@ func (c *Compiler) Compile(texPath string, rootPath string, engine string) (*Com
 		c.busy = false
 		c.mu.Unlock()
 	}()
+
+	if engine == "" {
+		engine = "pdflatex"
+	}
+
+	oldTexPath := oldPath
+	var toRemove string
+
+	if oldTexPath == "" {
+		// Create temporary old.tex
+		oldTexDir := filepath.Dir(newPath)
+		oldTexPath = filepath.Join(oldTexDir, "navtex_old.tex")
+		err := os.WriteFile(oldTexPath, []byte(oldContent), 0644)
+		if err != nil {
+			return nil, fmt.Errorf("writing old tex: %w", err)
+		}
+		toRemove = oldTexPath
+	}
+	if toRemove != "" {
+		defer os.Remove(toRemove)
+	}
+
+	diffTexPath := filepath.Join(filepath.Dir(newPath), "diff.tex")
+
+	// Run latexdiff
+	if _, err := exec.LookPath("latexdiff"); err != nil {
+		return nil, fmt.Errorf("latexdiff not found in PATH")
+	}
+
+	cmd := exec.Command("latexdiff", oldTexPath, newPath)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("latexdiff: %w (output: %s)", err, string(out))
+	}
+
+	err = os.WriteFile(diffTexPath, out, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("writing diff tex: %w", err)
+	}
+
+	return c.compile(diffTexPath, rootPath, engine, true)
+}
+
+func (c *Compiler) compile(texPath string, rootPath string, engine string, isDiff bool) (*CompileResult, error) {
+	if !isDiff {
+		c.mu.Lock()
+		if c.busy {
+			c.mu.Unlock()
+			return nil, fmt.Errorf("a build is already in progress")
+		}
+		c.busy = true
+		c.mu.Unlock()
+
+		defer func() {
+			c.mu.Lock()
+			c.busy = false
+			c.mu.Unlock()
+		}()
+	}
 
 	if engine == "" {
 		engine = "pdflatex"
@@ -125,13 +190,15 @@ func (c *Compiler) Compile(texPath string, rootPath string, engine string) (*Com
 
 	duration := time.Since(start)
 
-	return &CompileResult{
+	resultObj := &CompileResult{
 		Success:  result,
 		LogPath:  logPath,
 		Duration: duration,
 		Output:   output.String(),
 		Engine:   engine,
-	}, nil
+	}
+
+	return resultObj, nil
 }
 
 // runEngine executes the LaTeX engine and returns success status.
