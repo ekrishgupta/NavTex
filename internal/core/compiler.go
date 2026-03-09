@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -235,23 +236,14 @@ func (c *Compiler) runBibtex(baseName string, dir string, output *strings.Builde
 
 // checkBibtexNeeded reads the .tex file to see if it uses bibliography commands.
 func (c *Compiler) checkBibtexNeeded(texPath string) bool {
-	data, err := readFileContent(texPath)
+	data, err := os.ReadFile(texPath)
 	if err != nil {
 		return false
 	}
 
-	return strings.Contains(data, `\bibliography{`) ||
-		strings.Contains(data, `\addbibresource{`) ||
-		strings.Contains(data, `\printbibliography`)
-}
-
-// readFileContent reads a file and returns its content as a string.
-func readFileContent(path string) (string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+	return bytes.Contains(data, []byte(`\bibliography{`)) ||
+		bytes.Contains(data, []byte(`\addbibresource{`)) ||
+		bytes.Contains(data, []byte(`\printbibliography`))
 }
 
 // OpenPDF opens the given PDF file in the system's default viewer.
