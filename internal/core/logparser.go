@@ -56,7 +56,7 @@ func ParseLog(path string) ([]LogEntry, error) {
 			continue
 		}
 
-		// ট্র্যাক current file - common start for log files
+		// Track current file - common start for log files
 		if line[0] == '(' {
 			if m := reInputFile.FindStringSubmatch(line); m != nil {
 				currentFile = m[1]
