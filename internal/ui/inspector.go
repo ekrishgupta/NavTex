@@ -181,6 +181,11 @@ func (ins Inspector) renderTexMeta() string {
 		lines = append(lines, MetaLabel.Render("Options")+" "+MetaValue.Render(m.ClassOptions))
 	}
 	lines = append(lines, MetaLabel.Render("Word Count")+" "+MetaValue.Render(fmt.Sprintf("%d", m.WordCount)))
+	if m.WordsInText > 0 || m.WordsInHeaders > 0 || m.WordsInCaptions > 0 {
+		lines = append(lines, "  "+MetaLabel.Render("Words in Text")+" "+MetaValue.Render(fmt.Sprintf("%d", m.WordsInText)))
+		lines = append(lines, "  "+MetaLabel.Render("Words in Headers")+" "+MetaValue.Render(fmt.Sprintf("%d", m.WordsInHeaders)))
+		lines = append(lines, "  "+MetaLabel.Render("Words in Captions")+" "+MetaValue.Render(fmt.Sprintf("%d", m.WordsInCaptions)))
+	}
 
 	// Packages
 	if len(m.Packages) > 0 {
