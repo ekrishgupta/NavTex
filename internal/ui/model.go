@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/ekrishgupta/navtex/internal/core"
 	"github.com/ekrishgupta/navtex/internal/latex"
 	"github.com/ekrishgupta/navtex/internal/system"
 )
