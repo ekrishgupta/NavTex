@@ -52,14 +52,19 @@ func ParseLog(path string) ([]LogEntry, error) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		if len(line) == 0 {
+			continue
+		}
 
-		// Track current file
-		if m := reInputFile.FindStringSubmatch(line); m != nil {
-			currentFile = m[1]
+		// ট্র্যাক current file - common start for log files
+		if line[0] == '(' {
+			if m := reInputFile.FindStringSubmatch(line); m != nil {
+				currentFile = m[1]
+			}
 		}
 
 		// Line location after an error
-		if pendingError != "" {
+		if pendingError != "" && strings.HasPrefix(line, "l.") {
 			if m := reLineLoc.FindStringSubmatch(line); m != nil {
 				lineNum, _ := strconv.Atoi(m[1])
 				msg := pendingError
@@ -77,76 +82,83 @@ func ParseLog(path string) ([]LogEntry, error) {
 			}
 		}
 
-		// File-line-error format
-		if m := reFileLineError.FindStringSubmatch(line); m != nil {
-			if pendingError != "" {
-				entries = append(entries, LogEntry{Severity: "error", Line: 0, Message: pendingError, File: currentFile})
-				pendingError = ""
+		// TeX error: ! ...
+		if line[0] == '!' {
+			if m := reTexError.FindStringSubmatch(line); m != nil {
+				if pendingError != "" {
+					entries = append(entries, LogEntry{Severity: "error", Line: 0, Message: pendingError, File: currentFile})
+				}
+				pendingError = strings.TrimSpace(m[1])
+				continue
 			}
-			lineNum, _ := strconv.Atoi(m[2])
-			entries = append(entries, LogEntry{
-				Severity: "error",
-				Line:     lineNum,
-				Message:  strings.TrimSpace(m[3]),
-				File:     m[1],
-			})
-			continue
 		}
 
-		// TeX error: ! ...
-		if m := reTexError.FindStringSubmatch(line); m != nil {
-			if pendingError != "" {
-				entries = append(entries, LogEntry{Severity: "error", Line: 0, Message: pendingError, File: currentFile})
+		// File-line-error format (usually starts with ./ or /)
+		if strings.Contains(line, ".tex:") {
+			if m := reFileLineError.FindStringSubmatch(line); m != nil {
+				if pendingError != "" {
+					entries = append(entries, LogEntry{Severity: "error", Line: 0, Message: pendingError, File: currentFile})
+					pendingError = ""
+				}
+				lineNum, _ := strconv.Atoi(m[2])
+				entries = append(entries, LogEntry{
+					Severity: "error",
+					Line:     lineNum,
+					Message:  strings.TrimSpace(m[3]),
+					File:     m[1],
+				})
+				continue
 			}
-			pendingError = strings.TrimSpace(m[1])
-			continue
 		}
 
 		// LaTeX/Package warnings
-		if m := reLatexWarning.FindStringSubmatch(line); m != nil {
-			msg := strings.TrimSpace(m[1])
-			// Multi-line warnings end with a period on a subsequent line
-			msg = strings.TrimSuffix(msg, ".")
-			entries = append(entries, LogEntry{
-				Severity: "warning",
-				Line:     extractLineFromWarning(msg),
-				Message:  msg,
-				File:     currentFile,
-			})
-			continue
+		if strings.HasPrefix(line, "LaTeX Warning:") || strings.HasPrefix(line, "Package ") {
+			if m := reLatexWarning.FindStringSubmatch(line); m != nil {
+				msg := strings.TrimSpace(m[1])
+				msg = strings.TrimSuffix(msg, ".")
+				entries = append(entries, LogEntry{
+					Severity: "warning",
+					Line:     extractLineFromWarning(msg),
+					Message:  msg,
+					File:     currentFile,
+				})
+				continue
+			}
 		}
 
 		// Box warnings
-		if m := reBoxWarning.FindStringSubmatch(line); m != nil {
-			entries = append(entries, LogEntry{
-				Severity: "warning",
-				Line:     0,
-				Message:  strings.TrimSpace(m[1]),
-				File:     currentFile,
-			})
-			continue
+		if strings.Contains(line, "full \\") {
+			if m := reBoxWarning.FindStringSubmatch(line); m != nil {
+				entries = append(entries, LogEntry{
+					Severity: "warning",
+					Line:     0,
+					Message:  strings.TrimSpace(m[1]),
+					File:     currentFile,
+				})
+				continue
+			}
 		}
 
-		// Citation warnings
-		if m := reCitationWarning.FindStringSubmatch(line); m != nil {
-			entries = append(entries, LogEntry{
-				Severity: "warning",
-				Line:     0,
-				Message:  fmt.Sprintf("Undefined citation: %s", m[1]),
-				File:     currentFile,
-			})
-			continue
-		}
-
-		// Reference warnings
-		if m := reRefWarning.FindStringSubmatch(line); m != nil {
-			entries = append(entries, LogEntry{
-				Severity: "warning",
-				Line:     0,
-				Message:  fmt.Sprintf("Undefined reference: %s", m[1]),
-				File:     currentFile,
-			})
-			continue
+		// Citation/Reference warnings - less frequent, can check directly
+		if strings.Contains(line, "undefined") {
+			if m := reCitationWarning.FindStringSubmatch(line); m != nil {
+				entries = append(entries, LogEntry{
+					Severity: "warning",
+					Line:     0,
+					Message:  fmt.Sprintf("Undefined citation: %s", m[1]),
+					File:     currentFile,
+				})
+				continue
+			}
+			if m := reRefWarning.FindStringSubmatch(line); m != nil {
+				entries = append(entries, LogEntry{
+					Severity: "warning",
+					Line:     0,
+					Message:  fmt.Sprintf("Undefined reference: %s", m[1]),
+					File:     currentFile,
+				})
+				continue
+			}
 		}
 	}
 
