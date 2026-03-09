@@ -8,19 +8,24 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
+	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 )
 
 // TexMeta holds metadata extracted from a .tex file.
 type TexMeta struct {
-	DocumentClass string
-	ClassOptions  string
-	Packages      []PackageInfo
-	Title         string
-	Author        string
-	WordCount     int
+	DocumentClass   string
+	ClassOptions    string
+	Packages        []PackageInfo
+	Title           string
+	Author          string
+	WordCount       int
+	WordsInText     int
+	WordsInHeaders  int
+	WordsInCaptions int
 }
 
 // PackageInfo represents a single \usepackage entry.
@@ -102,10 +107,57 @@ func TexMetadata(path string) (*TexMeta, error) {
 		meta.Author = strings.TrimSpace(m[1])
 	}
 
-	// Word count: strip comments, commands, and environments, then count words
-	meta.WordCount = countWords(content)
+	// Try to get precise word count using texcount
+	if _, err := exec.LookPath("texcount"); err == nil {
+		total, inText, inHeaders, inCaptions, err := runTexCount(path)
+		if err == nil {
+			meta.WordCount = total
+			meta.WordsInText = inText
+			meta.WordsInHeaders = inHeaders
+			meta.WordsInCaptions = inCaptions
+		} else {
+			meta.WordCount = countWords(content)
+		}
+	} else {
+		// Fallback to custom regex
+		meta.WordCount = countWords(content)
+	}
 
 	return meta, nil
+}
+
+// runTexCount uses the texcount utility to get accurate word counts.
+func runTexCount(path string) (int, int, int, int, error) {
+	cmd := exec.Command("texcount", "-total", "-brief", path)
+	out, err := cmd.Output()
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+
+	// Example output: "342+15+12 (22/2/0/0) file.tex"
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) == 0 {
+		return 0, 0, 0, 0, fmt.Errorf("empty texcount output")
+	}
+
+	// Usually the last line holds the result
+	lastLine := strings.TrimSpace(lines[len(lines)-1])
+	parts := strings.SplitN(lastLine, " ", 2)
+	if len(parts) == 0 {
+		return 0, 0, 0, 0, fmt.Errorf("invalid texcount output format")
+	}
+
+	counts := strings.Split(parts[0], "+")
+	if len(counts) < 3 {
+		return 0, 0, 0, 0, fmt.Errorf("unexpected '+'-separated format: %s", parts[0])
+	}
+
+	wordsInText, _ := strconv.Atoi(counts[0])
+	wordsInHeaders, _ := strconv.Atoi(counts[1])
+	wordsInCaptions, _ := strconv.Atoi(counts[2])
+	total := wordsInText + wordsInHeaders + wordsInCaptions
+
+	return total, wordsInText, wordsInHeaders, wordsInCaptions, nil
 }
 
 // countWords estimates the word count of a LaTeX document's body text.
