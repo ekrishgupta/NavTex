@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -140,13 +141,15 @@ func (dm *DiffModal) selectCurrent() tea.Cmd {
 			}
 		case TargetTag:
 			if len(dm.tags) == 0 {
-				return nil // TODO: show error "No tags found"
+				dm.Hide()
+				return func() tea.Msg { return ErrorMsg{Err: fmt.Errorf("no tags found")} }
 			}
 			dm.state = stateTagSelect
 			dm.cursor = 0
 		case TargetFile:
 			if len(dm.files) == 0 {
-				return nil // No other tex files
+				dm.Hide()
+				return func() tea.Msg { return ErrorMsg{Err: fmt.Errorf("no other tex files found")} }
 			}
 			dm.state = stateFileSelect
 			dm.cursor = 0
