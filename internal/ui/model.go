@@ -29,6 +29,9 @@ type Model struct {
 	inspectorWidth int
 	mainHeight     int
 
+	// Styling
+	styles Styles
+
 	// Components
 	browser     FileBrowser
 	inspector   Inspector
@@ -65,11 +68,14 @@ func NewModel(root, engine string) Model {
 
 	w, _ := system.NewWatcher(root)
 
+	st := DefaultStyles()
+
 	return Model{
 		rootPath:        root,
 		engine:          engine,
-		browser:         NewFileBrowser(),
-		inspector:       NewInspector(),
+		styles:          st,
+		browser:         NewFileBrowser(st.Browser.Focused),
+		inspector:       NewInspector(st.Inspector.Focused),
 		actionBar:       NewActionBar(),
 		compiler:        latex.NewCompiler(),
 		filterInput:     ti,
@@ -178,6 +184,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "tab":
 			m.focused = (m.focused + 1) % 2
+			if m.focused == 0 {
+				m.browser.SetStyle(m.styles.Browser.Focused)
+				m.inspector.SetStyle(m.styles.Inspector.Blurred)
+			} else {
+				m.browser.SetStyle(m.styles.Browser.Blurred)
+				m.inspector.SetStyle(m.styles.Inspector.Focused)
+			}
 			m.browser.SetFocused(m.focused == 0)
 			m.inspector.SetFocused(m.focused == 1)
 
