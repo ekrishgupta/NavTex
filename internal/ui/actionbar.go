@@ -88,9 +88,9 @@ func (ab ActionBar) View() string {
 	case StatusBUILDING:
 		statusStr = StatusBuilding.Render("◉ Building…")
 	case StatusSUCCESS:
-		statusStr = SuccessText.Render(fmt.Sprintf("✓ Built (%.1fs)", ab.lastBuild.Seconds()))
+		statusStr = StatusSuccess.Render(fmt.Sprintf("✓ Built (%.1fs)", ab.lastBuild.Seconds()))
 	case StatusFAILED:
-		statusStr = StatusError.Render(fmt.Sprintf("✗ Failed (%d errors)", ab.errorCount))
+		statusStr = StatusFailed.Render(fmt.Sprintf("✗ Failed (%d errors)", ab.errorCount))
 	}
 
 	// Layout: shortcuts on left, status on right
@@ -104,5 +104,5 @@ func (ab ActionBar) View() string {
 
 	bar := left + strings.Repeat(" ", gap) + statusStr
 
-	return ActionBarStyle.Width(ab.width).Render(bar)
+	return ActionBarBg.Width(ab.width).Render(bar)
 }
