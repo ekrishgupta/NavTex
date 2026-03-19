@@ -64,12 +64,12 @@ func (hm HelpModal) View(termWidth, termHeight int) string {
 		{"q / Ctrl+C", "Quit"},
 	}
 
-	title := ModalTitle.Render("Keybindings")
+	title := ModalTitleBar.Render("Keybindings")
 
 	var rows []string
 	for _, b := range bindings {
 		key := ActionKey.Render(padRight(b.key, 12))
-		desc := MetaValue.Render(b.desc)
+		desc := lipgloss.NewStyle().Foreground(ColorFg).Render(b.desc)
 		rows = append(rows, "  "+key+" "+desc)
 	}
 
@@ -81,7 +81,7 @@ func (hm HelpModal) View(termWidth, termHeight int) string {
 		"",
 		strings.Join(rows, "\n"),
 		"",
-		FileItemDim.Render("  Press Esc or ? to close"),
+		ModalHint.Render("Press Esc or ? to close"),
 	)
 
 	modalW := 48
@@ -89,7 +89,7 @@ func (hm HelpModal) View(termWidth, termHeight int) string {
 		modalW = termWidth - 4
 	}
 
-	modal := ModalBox.Width(modalW).Render(content)
+	modal := ModalFrame.Width(modalW).Render(content)
 	return lipgloss.Place(termWidth, termHeight, lipgloss.Center, lipgloss.Center, modal)
 }
 
