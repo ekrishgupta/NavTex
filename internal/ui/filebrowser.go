@@ -25,6 +25,7 @@ type FileBrowser struct {
 	showShadow bool
 	focused    bool
 	filter     string
+	style      BrowserBaseStyle
 }
 
 type browserItem struct {
@@ -35,12 +36,18 @@ type browserItem struct {
 }
 
 // NewFileBrowser creates a new file browser.
-func NewFileBrowser() FileBrowser {
+func NewFileBrowser(style BrowserBaseStyle) FileBrowser {
 	return FileBrowser{
 		showShadow: false,
 		focused:    true,
 		filter:     "",
+		style:      style,
 	}
+}
+
+// SetStyle switches the browser's visual style (focused / blurred).
+func (fb *FileBrowser) SetStyle(s BrowserBaseStyle) {
+	fb.style = s
 }
 
 // SetFilter sets the search filter string.
@@ -130,8 +137,6 @@ func (fb *FileBrowser) rebuildItems() {
 		if fb.filter == "" {
 			return true
 		}
-		// Basic "fuzzy" match by converting to lower and checking contain
-		// A full fuzzy matching algorithm could be added here later.
 		return strings.Contains(strings.ToLower(name), fb.filter)
 	}
 
@@ -186,7 +191,7 @@ func (fb *FileBrowser) rebuildItems() {
 				filtered = append(filtered, browserItem{
 					display:  rel,
 					path:     f.Path,
-					category: latex.CategoryAssets,
+				 	category: latex.CategoryAssets,
 				})
 			}
 		}
@@ -270,23 +275,30 @@ func (fb *FileBrowser) advanceCursorToSelectable(direction int) {
 
 // View renders the file browser.
 func (fb FileBrowser) View() string {
+	s := fb.style
+	innerW := fb.width - 2 // margin for content
+
 	if fb.files == nil {
-		return PaneBorder.Width(fb.width).Height(fb.height).Render(
-			lipgloss.Place(fb.width, fb.height, lipgloss.Center, lipgloss.Center,
-				lipgloss.JoinVertical(lipgloss.Center,
-					LogoStyle.Render(Logo),
-					"",
-					FileItemDim.Render("No project loaded"),
-					FileItemDim.Render("Press 'n' to create one"),
-				),
+		empty := lipgloss.Place(innerW, fb.height-3, lipgloss.Center, lipgloss.Center,
+			lipgloss.JoinVertical(lipgloss.Center,
+				LogoStyle.Render(Logo),
+				"",
+				DimText.Render("No project loaded"),
+				DimText.Render("Press 'n' to create one"),
 			),
 		)
+		titleBar := s.TitleBar.Width(innerW).Render("Browser")
+		return lipgloss.NewStyle().Width(fb.width).Height(fb.height).Margin(0, 1).
+			Render(lipgloss.JoinVertical(lipgloss.Left, titleBar, empty))
 	}
+
+	// Title bar
+	titleBar := s.TitleBar.Width(innerW).Render("📄 Browser")
 
 	var lines []string
 
 	// Compute visible window
-	visibleHeight := fb.height - 2 // account for border padding
+	visibleHeight := fb.height - 3 // title bar + margins
 	scrollOffset := 0
 	if fb.cursor >= visibleHeight {
 		scrollOffset = fb.cursor - visibleHeight + 1
@@ -301,25 +313,20 @@ func (fb FileBrowser) View() string {
 		}
 
 		if item.isHeader {
-			lines = append(lines, CategoryLabel.Render(item.display))
+			lines = append(lines, s.CategoryHeader.Render(item.display))
 		} else if i == fb.cursor && fb.focused {
-			name := truncate(item.display, fb.width-6)
-			lines = append(lines, FileItemSelected.Width(fb.width-4).Render(" "+name))
+			name := truncate(item.display, innerW-6)
+			lines = append(lines, s.SelectedItem.Render(s.SelectedPrefix+name))
 		} else if item.category == latex.CategoryAuxiliary {
-			lines = append(lines, FileItemDim.Render(truncate(item.display, fb.width-6)))
+			lines = append(lines, s.DimItem.Render(truncate(item.display, innerW-6)))
 		} else {
-			lines = append(lines, FileItem.Render(truncate(item.display, fb.width-6)))
+			lines = append(lines, s.UnselectedItem.Render(truncate(item.display, innerW-6)))
 		}
 	}
 
 	content := strings.Join(lines, "\n")
-
-	border := PaneBorder
-	if fb.focused {
-		border = PaneBorderActive
-	}
-
-	return border.Width(fb.width).Height(fb.height).Render(content)
+	return lipgloss.NewStyle().Width(fb.width).Height(fb.height).Margin(0, 1).
+		Render(lipgloss.JoinVertical(lipgloss.Left, titleBar, content))
 }
 
 // truncate shortens a string to fit a given width.

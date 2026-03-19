@@ -7,7 +7,7 @@ import (
 )
 
 func TestFileBrowser_Filtering(t *testing.T) {
-	fb := NewFileBrowser()
+	fb := NewFileBrowser(DefaultStyles().Browser.Focused)
 
 	files := &latex.ProjectFiles{
 		Source: []latex.FileEntry{
