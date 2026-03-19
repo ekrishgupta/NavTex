@@ -55,7 +55,6 @@ func (dm *DiffModal) Show(selectedTex string, tags []string, allFiles []string) 
 	dm.selectedTex = selectedTex
 	dm.tags = tags
 	dm.files = nil
-	// Only include .tex files for comparison, excluding the selected one
 	for _, f := range allFiles {
 		if strings.HasSuffix(f, ".tex") && f != selectedTex {
 			dm.files = append(dm.files, f)
@@ -170,13 +169,8 @@ func (dm *DiffModal) selectCurrent() tea.Cmd {
 		otherFile := dm.files[dm.cursor]
 		dm.Hide()
 		return func() tea.Msg {
-			// Read other file content
-			content, err := latex.GetGitVersionContent(otherFile, "HEAD") // Fallback to current if not in git
+			content, err := latex.GetGitVersionContent(otherFile, "HEAD")
 			if err != nil {
-				// Try reading from disk if git fails
-				// But latexdiff can take a file path directly?
-				// Actually our Compiler.Diff expects oldContent string for now.
-				// Let's just use the path if we want to support non-git files.
 				return RunDiffMsg{OldPath: otherFile, NewPath: dm.selectedTex}
 			}
 			return RunDiffMsg{OldContent: content, NewPath: dm.selectedTex}
@@ -190,6 +184,9 @@ func (dm DiffModal) View(termWidth, termHeight int) string {
 		return ""
 	}
 
+	selectedStyle := lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true)
+	unselectedStyle := lipgloss.NewStyle().Foreground(ColorFg)
+
 	var title string
 	var items []string
 
@@ -198,39 +195,39 @@ func (dm DiffModal) View(termWidth, termHeight int) string {
 		title = "Compare against..."
 		for i, t := range dm.targets {
 			if i == dm.cursor {
-				items = append(items, FileItemSelected.Render("> "+t.name))
+				items = append(items, selectedStyle.Render("▸ "+t.name))
 			} else {
-				items = append(items, FileItem.Render("  "+t.name))
+				items = append(items, unselectedStyle.Render("  "+t.name))
 			}
 		}
 	case stateTagSelect:
 		title = "Select Tag"
 		for i, t := range dm.tags {
 			if i == dm.cursor {
-				items = append(items, FileItemSelected.Render("> "+t))
+				items = append(items, selectedStyle.Render("▸ "+t))
 			} else {
-				items = append(items, FileItem.Render("  "+t))
+				items = append(items, unselectedStyle.Render("  "+t))
 			}
 		}
 	case stateFileSelect:
 		title = "Select File"
 		for i, f := range dm.files {
 			if i == dm.cursor {
-				items = append(items, FileItemSelected.Render("> "+f))
+				items = append(items, selectedStyle.Render("▸ "+f))
 			} else {
-				items = append(items, FileItem.Render("  "+f))
+				items = append(items, unselectedStyle.Render("  "+f))
 			}
 		}
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left,
-		ModalTitle.Render(title),
+		ModalTitleBar.Render(title),
 		"",
 		strings.Join(items, "\n"),
 		"",
-		FileItemDim.Render("Press Esc to go back/close"),
+		ModalHint.Render("Press Esc to go back/close"),
 	)
 
-	modal := ModalBox.Width(40).Render(content)
+	modal := ModalFrame.Width(40).Render(content)
 	return lipgloss.Place(termWidth, termHeight, lipgloss.Center, lipgloss.Center, modal)
 }
